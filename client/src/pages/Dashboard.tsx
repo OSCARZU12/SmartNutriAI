@@ -169,7 +169,7 @@ export default function Dashboard() {
 
             {/* Si es solo texto, mostrar solo el plan de Gemini */}
             {isTextOnlyPlan ? (
-                <GeminiPlanView planText={dietPlan} />
+                <GeminiPlanView planText={dietPlan} userData={userData} />
             ) : (
                 <>
                     {/* Mostrar estadísticas y gráficas */}
@@ -179,7 +179,7 @@ export default function Dashboard() {
                         <div className="lg:col-span-2 space-y-6">
                             <TodaysMeals dietPlan={dietPlan} />
                             {/* Si tiene texto de Gemini, mostrarlo también */}
-                            {hasRawText && <GeminiPlanView planText={dietPlan.rawText} />}
+                            {hasRawText && <GeminiPlanView planText={dietPlan.rawText} userData={userData} />}
                         </div>
                         <div className="space-y-6">
                             <MacroChart dietPlan={dietPlan} />
