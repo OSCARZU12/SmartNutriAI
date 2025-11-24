@@ -119,18 +119,44 @@ export default function OnboardingForm() {
     if (currentStep < TOTAL_STEPS) {
       setCurrentStep(prev => prev + 1);
     } else {
-      // LÓGICA FINAL: Guardar datos y generar dieta
+      // LÓGICA FINAL: Enviar datos al backend Flask
       setLoading(true);
 
       try {
-        const diet = generateInitialDiet(formData);
+        // Preparar datos para el backend
+        const userData = {
+          edad: parseInt(formData.age),
+          genero: formData.gender === 'male' ? 'Masculino' : formData.gender === 'female' ? 'Femenino' : 'Otro',
+          peso: parseFloat(formData.weight),
+          altura: parseFloat(formData.height),
+          actividad: formData.activityLevel,
+          objetivo: formData.goal,
+          tipo_dieta: formData.dietType,
+          alergias: formData.allergies,
+          restricciones: "",
+          duracion: formData.duration
+        };
 
-        // ⭐️ GUARDADO DE DATOS ⭐️
+        // Enviar al backend Flask
+        const response = await fetch('http://127.0.0.1:5000/api/generar_plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userData)
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al generar el plan');
+        }
+
+        const result = await response.json();
+
+        // Guardar datos del usuario y el plan generado
         localStorage.setItem('user_profile', JSON.stringify({
             ...formData,
             completedOnboarding: true
         }));
-        localStorage.setItem('user_diet_plan', JSON.stringify(diet));
+        // Guardar el plan de Gemini como string
+        localStorage.setItem('user_diet_plan', JSON.stringify(result.plan));
 
         // Redirección
         setTimeout(() => {
@@ -139,9 +165,9 @@ export default function OnboardingForm() {
         }, 1500);
 
       } catch (err) {
-        setError("Error crítico al generar el plan. Intenta de nuevo.");
+        setError("Error al conectar con el servidor. Verifica que el backend esté corriendo.");
         setLoading(false);
-        console.error("Error generating or saving plan:", err);
+        console.error("Error generating plan:", err);
       }
     }
   };
