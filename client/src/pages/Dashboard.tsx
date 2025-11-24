@@ -5,8 +5,11 @@ import ThemeToggle from "@/components/ThemeToggle";
 import DashboardStats from "@/components/DashboardStats";
 import MacroChart from "@/components/MacroChart";
 import TodaysMeals from "@/components/TodaysMeals";
-import MealPlanCalendar from "@/components/MealPlanCalendar";
+import TodayMealPlan from "@/components/TodayMealPlan";
 import ShoppingList from "@/components/ShoppingList";
+import SmartShoppingList from "@/components/SmartShoppingList";
+import ProgressTracking from "@/components/ProgressTracking";
+import ProfileSettings from "@/components/ProfileSettings";
 import GeminiPlanView from "@/components/GeminiPlanView";
 import UserProfileCard from "@/components/UserProfileCard";
 import { Button } from "@/components/ui/button";
@@ -19,34 +22,39 @@ const GOAL_MAPPING = {
     'gain': 'Ganancia Muscular', 'health': 'Mejorar Salud General'
 };
 const MealPlanView = () => (
-    <div className="p-4 sm:p-6 bg-card rounded-xl shadow-lg border">
-        <h2 className="text-2xl font-bold mb-4">🍽️ Planificador Semanal de Comidas</h2>
-        <p className="text-muted-foreground mb-6">Arrastra y suelta comidas para planificar tu semana.</p>
-        <MealPlanCalendar />
-        <Button className="mt-4 w-full">Guardar y Sincronizar Plan</Button>
+    <div className="space-y-6">
+        <div>
+            <h2 className="text-2xl font-bold mb-2">Plan de Comidas de Hoy</h2>
+            <p className="text-muted-foreground">Detalle de tus comidas para el día actual</p>
+        </div>
+        <TodayMealPlan />
     </div>
 );
 const ShoppingListView = () => (
-    <div className="p-4 sm:p-6 bg-card rounded-xl shadow-lg border">
-        <h2 className="text-2xl font-bold mb-4">🛒 Lista de Compras Inteligente</h2>
-        <ShoppingList />
-        <div className="flex justify-end gap-3 mt-6">
-            <Button variant="outline">Exportar a CSV</Button>
+    <div className="space-y-6">
+        <div>
+            <h2 className="text-2xl font-bold mb-2">Lista de Compras Inteligente</h2>
+            <p className="text-muted-foreground">Ingredientes extraídos de tu plan nutricional</p>
         </div>
+        <SmartShoppingList />
     </div>
 );
 const ProgressView = () => (
-    <div className="p-4 sm:p-6 bg-card rounded-xl shadow-lg border min-h-[500px]">
-        <h2 className="text-2xl font-bold mb-4">📈 Seguimiento de Progreso</h2>
-        <div className="w-full h-80 bg-gray-100 dark:bg-gray-800 flex items-center justify-center rounded-lg">
-            [Gráficos de Progreso Aquí]
+    <div className="space-y-6">
+        <div>
+            <h2 className="text-2xl font-bold mb-2">Seguimiento de Progreso</h2>
+            <p className="text-muted-foreground">Monitorea tu evolución y logros</p>
         </div>
+        <ProgressTracking />
     </div>
 );
 const ProfileView = () => (
-    <div className="p-4 sm:p-6 bg-card rounded-xl shadow-lg border min-h-[500px]">
-        <h2 className="text-2xl font-bold mb-4">👤 Configuración de Perfil</h2>
-        <Button className="mt-4">Guardar Cambios</Button>
+    <div className="space-y-6">
+        <div>
+            <h2 className="text-2xl font-bold mb-2">Configuración de Perfil</h2>
+            <p className="text-muted-foreground">Administra tu información personal y preferencias</p>
+        </div>
+        <ProfileSettings />
     </div>
 );
 const menuItems = [
@@ -121,10 +129,54 @@ export default function Dashboard() {
     setLocation('/'); // Redirige a la Landing Page
   };
 
+  const handleGenerateNewPlan = async () => {
+    if (!userData) return;
+
+    setIsLoading(true);
+    try {
+      const requestData = {
+        edad: parseInt(userData.age),
+        genero: userData.gender === 'male' ? 'Masculino' : userData.gender === 'female' ? 'Femenino' : 'Otro',
+        peso: parseFloat(userData.weight),
+        altura: parseFloat(userData.height),
+        actividad: userData.activityLevel,
+        objetivo: userData.goal,
+        tipo_dieta: userData.dietType,
+        alergias: userData.allergies || [],
+        restricciones: "",
+        duracion: userData.duration
+      };
+
+      const response = await fetch('http://127.0.0.1:5000/api/generar_plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al generar el plan');
+      }
+
+      const result = await response.json();
+      localStorage.setItem('user_diet_plan', JSON.stringify(result.plan));
+      setDietPlan(result.plan);
+
+      alert('¡Nuevo plan generado exitosamente!');
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al generar el plan. Verifica que el backend esté corriendo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const DashboardOverview = () => {
     // Detectar si el plan viene de Gemini (es texto) o es estructurado
     const isTextOnlyPlan = typeof dietPlan === 'string';
     const hasRawText = dietPlan && typeof dietPlan === 'object' && 'rawText' in dietPlan;
+    
+    // Obtener nombre del usuario
+    const userName = userData?.name || 'de vuelta';
     
     let descriptionContent;
     if (userData && dietPlan) {
@@ -154,12 +206,17 @@ export default function Dashboard() {
         <>
         <div className="flex items-center justify-between gap-4 flex-wrap pb-6 border-b">
             <div>
-                <h1 className="text-3xl font-bold mb-1">¡Bienvenido de vuelta!</h1>
+                <h1 className="text-3xl font-bold mb-1">¡Bienvenido {userName}!</h1>
                 {descriptionContent}
             </div>
-            <Button data-testid="button-generate-new-plan" className="bg-primary hover:bg-primary/90" disabled={!userData}>
+            <Button 
+              data-testid="button-generate-new-plan" 
+              className="bg-primary hover:bg-primary/90" 
+              disabled={!userData || isLoading}
+              onClick={handleGenerateNewPlan}
+            >
                 <Sparkles className="mr-2 h-4 w-4" />
-                Generar Nuevo Plan con IA
+                {isLoading ? 'Generando...' : 'Generar Nuevo Plan con IA'}
             </Button>
         </div>
 
