@@ -70,6 +70,7 @@ export default function OnboardingForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
+    name: "",
     age: "",
     weight: "",
     height: "",
@@ -90,6 +91,7 @@ export default function OnboardingForm() {
     const data = formData;
     switch(step) {
       case 1:
+        if (!data.name) { setError("Por favor, ingresa tu nombre."); return false; }
         if (!data.age || !data.gender) { setError("Por favor, completa edad y género."); return false; }
         if (parseFloat(data.age) < 15) { setError("La edad debe ser mayor a 15."); return false; }
         break;
@@ -206,6 +208,18 @@ export default function OnboardingForm() {
               </div>
 
               <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Nombre</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Juan Pérez"
+                    value={formData.name}
+                    onChange={(e) => updateField("name", e.target.value)}
+                    data-testid="input-name"
+                  />
+                </div>
+
                 <div>
                   <Label htmlFor="age">Edad</Label>
                   <Input

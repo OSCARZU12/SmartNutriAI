@@ -122,9 +122,8 @@ export default function Dashboard() {
 
   // 🌟 FUNCIÓN CLAVE: Cerrar Sesión 🌟
   const handleLogout = () => {
-    localStorage.removeItem('auth_token'); // Borra el token que valida la sesión
-    localStorage.removeItem('user_profile'); // Borra los datos del perfil
-    localStorage.removeItem('user_diet_plan'); // Borra la dieta
+    // Solo redirigir a la landing, sin borrar datos
+    // Los datos se mantienen en localStorage para la próxima sesión
     alert('Sesión cerrada exitosamente.');
     setLocation('/'); // Redirige a la Landing Page
   };
