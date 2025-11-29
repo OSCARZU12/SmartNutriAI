@@ -13,7 +13,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [, setLocation] = useLocation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -24,29 +24,47 @@ export default function Login() {
       return;
     }
 
-    // =========================================================
-    // SIMULACIÓN: LÓGICA DE REDIRECCIÓN CONDICIONAL
-    // =========================================================
-    setTimeout(() => {
-        setLoading(false);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
 
-        // 1. Simular que el inicio de sesión fue exitoso (guardar token)
-        localStorage.setItem('auth_token', 'simulated_jwt_token_123');
-        alert('¡Inicio de sesión exitoso (Simulado)! Redirigiendo...');
+      // Llamar al endpoint de login
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          password
+        })
+      });
 
-        // 2. 🌟 VERIFICAR SI EL ONBOARDING ESTÁ COMPLETO 🌟
-        const userProfile = localStorage.getItem('user_profile');
+      const data = await response.json();
 
-        if (userProfile) {
-            // Si tiene perfil, ir al Dashboard (ya tiene datos)
-            setLocation('/dashboard');
-        } else {
-            // Si NO tiene perfil, ir al Onboarding (necesita ingresar sus datos)
-            setLocation('/onboarding');
-        }
+      if (!data.success) {
+        throw new Error(data.error || 'Credenciales inválidas');
+      }
 
-    }, 1500); // Espera 1.5 segundos
-    // =========================================================
+      // Guardar token en localStorage
+      localStorage.setItem('access_token', data.session.access_token);
+      localStorage.setItem('refresh_token', data.session.refresh_token);
+      localStorage.setItem('user_id', data.user.id);
+
+      alert('¡Inicio de sesión exitoso! Redirigiendo...');
+
+      // Verificar si tiene perfil
+      if (data.user.has_profile) {
+        setLocation('/dashboard');
+      } else {
+        setLocation('/onboarding');
+      }
+
+    } catch (error: any) {
+      console.error('Error en login:', error);
+      setError(error.message || 'Error al iniciar sesión. Verifica tus credenciales.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

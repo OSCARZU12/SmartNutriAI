@@ -125,40 +125,106 @@ export default function OnboardingForm() {
       setLoading(true);
 
       try {
-        // Preparar datos para el backend
-        const userData = {
-          edad: parseInt(formData.age),
-          genero: formData.gender === 'male' ? 'Masculino' : formData.gender === 'female' ? 'Femenino' : 'Otro',
-          peso: parseFloat(formData.weight),
-          altura: parseFloat(formData.height),
-          actividad: formData.activityLevel,
-          objetivo: formData.goal,
-          tipo_dieta: formData.dietType,
-          alergias: formData.allergies,
-          restricciones: "",
-          duracion: formData.duration
-        };
+        const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+        const token = localStorage.getItem('access_token');
 
-        // Enviar al backend Flask
-        const response = await fetch('http://127.0.0.1:5000/api/generar_plan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(userData)
-        });
-
-        if (!response.ok) {
-          throw new Error('Error al generar el plan');
+        if (!token) {
+          throw new Error('No estás autenticado');
         }
 
-        const result = await response.json();
+        // Mapear valores del formulario a los valores de la API
+        // Mapeos según los valores exactos de la base de datos
+        const goalMap = {
+          'lose': 'Perder peso',
+          'maintain': 'Mantener peso',
+          'gain': 'Ganar músculo',
+          'health': 'Mejorar salud'
+        };
 
-        // Guardar datos del usuario y el plan generado
+        const activityMap = {
+          'sedentary': 'Sedentario',
+          'light': 'Ligero',
+          'moderate': 'Moderado',
+          'active': 'Activo',
+          'very-active': 'Muy activo'
+        };
+
+        const dietMap = {
+          'balanced': 'Balanceada',
+          'vegetarian': 'Vegetariana',
+          'vegan': 'Vegana',
+          'keto': 'Keto',
+          'paleo': 'Paleo',
+          'mediterranean': 'Mediterránea'
+        };
+
+        const genderMap = {
+          'male': 'Masculino',
+          'female': 'Femenino',
+          'other': 'Otro'
+        };
+
+        // Preparar datos del perfil
+        const profileData = {
+          edad: parseInt(formData.age),
+          genero: genderMap[formData.gender] || 'otro',
+          peso: parseFloat(formData.weight),
+          altura: parseFloat(formData.height),
+          actividad: activityMap[formData.activityLevel] || 'moderada',
+          objetivo: goalMap[formData.goal] || 'Mejorar salud',
+          tipo_dieta: dietMap[formData.dietType] || 'Balanceada',
+          alergias: formData.allergies,
+          restricciones: ""
+        };
+
+        // PASO 1: Guardar perfil
+        const profileResponse = await fetch(`${API_URL}/api/profile`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(profileData)
+        });
+
+        const profileResult = await profileResponse.json();
+
+        if (!profileResult.success) {
+          throw new Error(profileResult.error || 'Error al guardar perfil');
+        }
+
+        // PASO 2: Generar plan con IA
+        const durationMap = {
+          '1week': '1 semana',
+          '2weeks': '2 semanas',
+          '1month': '1 mes'
+        };
+
+        const planResponse = await fetch(`${API_URL}/api/plan/generar`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            duracion: durationMap[formData.duration] || '1 semana',
+            prompt_adicional: formData.allergies.length > 0 
+              ? `Alergias: ${formData.allergies.join(', ')}` 
+              : ''
+          })
+        });
+
+        const planResult = await planResponse.json();
+
+        if (!planResult.success) {
+          throw new Error(planResult.error || 'Error al generar plan');
+        }
+
+        // Guardar en localStorage
         localStorage.setItem('user_profile', JSON.stringify({
             ...formData,
             completedOnboarding: true
         }));
-        // Guardar el plan de Gemini como string
-        localStorage.setItem('user_diet_plan', JSON.stringify(result.plan));
 
         // Redirección
         setTimeout(() => {
@@ -166,8 +232,8 @@ export default function OnboardingForm() {
             setLocation('/dashboard');
         }, 1500);
 
-      } catch (err) {
-        setError("Error al conectar con el servidor. Verifica que el backend esté corriendo.");
+      } catch (err: any) {
+        setError(err.message || "Error al conectar con el servidor.");
         setLoading(false);
         console.error("Error generating plan:", err);
       }

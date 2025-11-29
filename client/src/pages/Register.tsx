@@ -13,7 +13,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -23,22 +23,51 @@ export default function Register() {
       return;
     }
 
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
     setLoading(true);
 
-    // TODO: Aquí iría la llamada a tu API de Node.js (carpeta 'server')
-    // para enviar los datos de registro.
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
 
-    // Simulación de registro exitoso:
-    setTimeout(() => {
-        setLoading(false);
-        if (email && password) {
-            // En una aplicación real, aquí podrías mostrar una notificación.
-            alert('¡Registro exitoso! Por favor, inicia sesión.');
-            window.location.href = '/login'; // Redirigir al login
-        } else {
-            setError('Por favor, completa todos los campos.');
-        }
-    }, 2000);
+      // Llamar al endpoint de registro
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email,
+          password
+        })
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Error al registrar usuario');
+      }
+
+      // Guardar token en localStorage
+      if (data.session?.access_token) {
+        localStorage.setItem('access_token', data.session.access_token);
+        localStorage.setItem('refresh_token', data.session.refresh_token);
+        localStorage.setItem('user_id', data.user.id);
+      }
+
+      // Registro exitoso - redirigir a Onboarding para completar perfil
+      alert('¡Registro exitoso! Ahora completa tu perfil.');
+      window.location.href = '/onboarding'; // Redirigir a onboarding
+
+    } catch (error: any) {
+      console.error('Error en registro:', error);
+      setError(error.message || 'Error al registrar usuario. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -103,10 +132,8 @@ export default function Register() {
             >
               {loading ? 'Registrando...' : 'Registrarme'}
             </Button>
-            <Link href="/login">
-                <a className="text-sm text-primary hover:text-primary/80 transition-colors">
-                    ¿Ya tienes cuenta? Inicia sesión
-                </a>
+            <Link href="/login" className="text-sm text-primary hover:text-primary/80 transition-colors">
+                ¿Ya tienes cuenta? Inicia sesión
             </Link>
           </CardFooter>
         </form>
