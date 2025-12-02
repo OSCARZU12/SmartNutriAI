@@ -7,6 +7,8 @@ import MacroChart from "@/components/MacroChart";
 import TodaysMeals from "@/components/TodaysMeals";
 import MealPlanCalendar from "@/components/MealPlanCalendar";
 import ShoppingList from "@/components/ShoppingList";
+import GeminiPlanView from "@/components/GeminiPlanView";
+import UserProfileCard from "@/components/UserProfileCard";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
@@ -120,17 +122,30 @@ export default function Dashboard() {
   };
 
   const DashboardOverview = () => {
+    // Detectar si el plan viene de Gemini (es texto) o es estructurado
+    const isTextOnlyPlan = typeof dietPlan === 'string';
+    const hasRawText = dietPlan && typeof dietPlan === 'object' && 'rawText' in dietPlan;
+    
     let descriptionContent;
     if (userData && dietPlan) {
         const userGoal = GOAL_MAPPING[userData.goal] || userData.goal;
 
-        descriptionContent = (
-            <p className="text-muted-foreground">
-                <span className="font-semibold">Meta:</span> {userGoal} |
-                <span className="font-semibold"> Calorías objetivo:</span> {dietPlan.targetCalories} kcal |
-                <span className="font-semibold"> Enfoque:</span> {dietPlan.dietFocus}
-            </p>
-        );
+        if (isTextOnlyPlan) {
+            descriptionContent = (
+                <p className="text-muted-foreground">
+                    <span className="font-semibold">Meta:</span> {userGoal} | 
+                    <span className="font-semibold"> Plan generado por IA</span>
+                </p>
+            );
+        } else {
+            descriptionContent = (
+                <p className="text-muted-foreground">
+                    <span className="font-semibold">Meta:</span> {userGoal} |
+                    <span className="font-semibold"> Calorías objetivo:</span> {dietPlan.targetCalories} kcal |
+                    <span className="font-semibold"> Enfoque:</span> {dietPlan.dietFocus}
+                </p>
+            );
+        }
     } else {
         descriptionContent = <p className="text-muted-foreground">Tu plan está cargando. Si esto tarda, por favor completa el Onboarding.</p>;
     }
@@ -149,17 +164,30 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-6 pt-6">
-            <DashboardStats userData={userData} dietPlan={dietPlan} />
+            {/* Tarjeta de perfil del usuario - siempre visible */}
+            <UserProfileCard userData={userData} />
 
-            <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                    <TodaysMeals dietPlan={dietPlan} />
-                </div>
-                <div className="space-y-6">
-                    <MacroChart dietPlan={dietPlan} />
-                    <ShoppingList userData={userData} />
-                </div>
-            </div>
+            {/* Si es solo texto, mostrar solo el plan de Gemini */}
+            {isTextOnlyPlan ? (
+                <GeminiPlanView planText={dietPlan} />
+            ) : (
+                <>
+                    {/* Mostrar estadísticas y gráficas */}
+                    <DashboardStats userData={userData} dietPlan={dietPlan} />
+
+                    <div className="grid lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 space-y-6">
+                            <TodaysMeals dietPlan={dietPlan} />
+                            {/* Si tiene texto de Gemini, mostrarlo también */}
+                            {hasRawText && <GeminiPlanView planText={dietPlan.rawText} />}
+                        </div>
+                        <div className="space-y-6">
+                            <MacroChart dietPlan={dietPlan} />
+                            <ShoppingList userData={userData} />
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
         </>
     );
