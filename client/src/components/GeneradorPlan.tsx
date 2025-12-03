@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { createClient } from "@supabase/supabase-js";
+import { API_BASE_URL } from "@/lib/config";
 
 // Configurar cliente de Supabase
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
@@ -10,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export function GeneradorPlan() {
   const { toast } = useToast();
-  
+
   const [loading, setLoading] = useState(false);
   const [planGenerado, setPlanGenerado] = useState<string | null>(null);
 
@@ -41,14 +42,12 @@ export function GeneradorPlan() {
     setPlanGenerado(null);
 
     try {
-      // A. Obtener el token de usuario
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      // A. Obtener el token de usuario desde localStorage
+      const token = localStorage.getItem('access_token');
+      if (!token) {
         toast({ title: "Error", description: "No estás autenticado", variant: "destructive" });
         return;
       }
-      const token = session.access_token;
-      const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
 
       // B. Preparar datos del perfil según la API
       const profileData = {
@@ -65,29 +64,31 @@ export function GeneradorPlan() {
 
       // --- PASO 1: GUARDAR PERFIL (POST /api/profile) ---
       console.log("Guardando perfil...");
-      const resProfile = await fetch(`${API_URL}/api/profile`, {
+      const resProfile = await fetch(`${API_BASE_URL}/api/profile`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
+        credentials: 'include',
         body: JSON.stringify(profileData)
       });
 
       const dataProfile = await resProfile.json();
-      
+
       if (!dataProfile.success) {
         throw new Error(dataProfile.error || "Error al guardar perfil");
       }
 
       // --- PASO 2: GENERAR PLAN (POST /api/plan/generar) ---
       console.log("Generando plan con IA...");
-      const resPlan = await fetch(`${API_URL}/api/plan/generar`, {
+      const resPlan = await fetch(`${API_BASE_URL}/api/plan/generar`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
+        credentials: 'include',
         body: JSON.stringify({
           duracion: "1 semana",
           prompt_adicional: formData.restricciones
@@ -121,25 +122,25 @@ export function GeneradorPlan() {
 
   return (
     <div className="space-y-6 max-w-xl mx-auto p-4">
-      
+
       {/* --- FORMULARIO --- */}
       <form onSubmit={handleGuardarYGenerar} className="space-y-4 border p-4 rounded-lg bg-white shadow-sm">
         <h2 className="text-xl font-bold mb-4">Generar Nuevo Plan</h2>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium">Edad</label>
-            <input name="edad" type="number" required className="border p-2 rounded w-full" 
+            <input name="edad" type="number" required className="border p-2 rounded w-full"
               value={formData.edad} onChange={handleChange} />
           </div>
           <div>
             <label className="block text-sm font-medium">Peso (kg)</label>
-            <input name="peso" type="number" required className="border p-2 rounded w-full" 
+            <input name="peso" type="number" required className="border p-2 rounded w-full"
               value={formData.peso} onChange={handleChange} />
           </div>
           <div>
             <label className="block text-sm font-medium">Altura (cm)</label>
-            <input name="altura" type="number" required className="border p-2 rounded w-full" 
+            <input name="altura" type="number" required className="border p-2 rounded w-full"
               value={formData.altura} onChange={handleChange} />
           </div>
           <div>
@@ -153,31 +154,31 @@ export function GeneradorPlan() {
         </div>
 
         <div>
-           <label className="block text-sm font-medium">Nivel de Actividad</label>
-           <select name="actividad" className="border p-2 rounded w-full" value={formData.actividad} onChange={handleChange}>
-              <option value="sedentaria">Sedentario</option>
-              <option value="ligera">Ligero</option>
-              <option value="moderada">Moderado</option>
-              <option value="intensa">Activo</option>
-              <option value="muy_intensa">Muy Activo</option>
-           </select>
+          <label className="block text-sm font-medium">Nivel de Actividad</label>
+          <select name="actividad" className="border p-2 rounded w-full" value={formData.actividad} onChange={handleChange}>
+            <option value="sedentaria">Sedentario</option>
+            <option value="ligera">Ligero</option>
+            <option value="moderada">Moderado</option>
+            <option value="intensa">Activo</option>
+            <option value="muy_intensa">Muy Activo</option>
+          </select>
         </div>
 
         <div>
-           <label className="block text-sm font-medium">Objetivo</label>
-           <select name="objetivo" className="border p-2 rounded w-full" value={formData.objetivo} onChange={handleChange}>
-              <option value="perder_peso">Perder peso</option>
-              <option value="mantener_peso">Mantener peso</option>
-              <option value="ganar_masa_muscular">Ganar músculo</option>
-              <option value="mejorar_salud">Mejorar salud</option>
-           </select>
+          <label className="block text-sm font-medium">Objetivo</label>
+          <select name="objetivo" className="border p-2 rounded w-full" value={formData.objetivo} onChange={handleChange}>
+            <option value="perder_peso">Perder peso</option>
+            <option value="mantener_peso">Mantener peso</option>
+            <option value="ganar_masa_muscular">Ganar músculo</option>
+            <option value="mejorar_salud">Mejorar salud</option>
+          </select>
         </div>
 
         <div>
-           <label className="block text-sm font-medium">Restricciones / Notas</label>
-           <input name="restricciones" type="text" placeholder="Ej: No como pescado, soy vegetariano..." 
-             className="border p-2 rounded w-full" 
-             value={formData.restricciones} onChange={handleChange} />
+          <label className="block text-sm font-medium">Restricciones / Notas</label>
+          <input name="restricciones" type="text" placeholder="Ej: No como pescado, soy vegetariano..."
+            className="border p-2 rounded w-full"
+            value={formData.restricciones} onChange={handleChange} />
         </div>
 
         <Button type="submit" disabled={loading} className="w-full">

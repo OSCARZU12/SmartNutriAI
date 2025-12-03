@@ -15,109 +15,105 @@ import UserProfileCard from "@/components/UserProfileCard";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
+import { API_BASE_URL } from "@/lib/config";
 
 // MAPPINGS Y STUBS
-const GOAL_MAPPING = {
-    'lose': 'Pérdida de Peso', 'maintain': 'Mantenimiento',
-    'gain': 'Ganancia Muscular', 'health': 'Mejorar Salud General'
+const GOAL_MAPPING: any = {
+  'lose': 'Pérdida de Peso', 'maintain': 'Mantenimiento',
+  'gain': 'Ganancia Muscular', 'health': 'Mejorar Salud General'
 };
-const MealPlanView = () => (
-    <div className="space-y-6">
-        <div>
-            <h2 className="text-2xl font-bold mb-2">Plan de Comidas de Hoy</h2>
-            <p className="text-muted-foreground">Detalle de tus comidas para el día actual</p>
-        </div>
-        <TodayMealPlan />
-    </div>
-);
-const ShoppingListView = () => (
-    <div className="space-y-6">
-        <div>
-            <h2 className="text-2xl font-bold mb-2">Lista de Compras Inteligente</h2>
-            <p className="text-muted-foreground">Ingredientes extraídos de tu plan nutricional</p>
-        </div>
-        <SmartShoppingList />
-    </div>
-);
-const ProgressView = () => (
-    <div className="space-y-6">
-        <div>
-            <h2 className="text-2xl font-bold mb-2">Seguimiento de Progreso</h2>
-            <p className="text-muted-foreground">Monitorea tu evolución y logros</p>
-        </div>
-        <ProgressTracking />
-    </div>
-);
-const ProfileView = () => (
-    <div className="space-y-6">
-        <div>
-            <h2 className="text-2xl font-bold mb-2">Configuración de Perfil</h2>
-            <p className="text-muted-foreground">Administra tu información personal y preferencias</p>
-        </div>
-        <ProfileSettings />
-    </div>
-);
+
 const menuItems = [
-    { title: "Dashboard", icon: Home, id: "dashboard" },
-    { title: "Plan de Comidas", icon: Calendar, id: "meals" },
-    { title: "Lista de Compras", icon: ShoppingCart, id: "shopping" },
-    { title: "Progreso", icon: TrendingUp, id: "progress" },
-    { title: "Perfil", icon: User, id: "profile" }
+  { title: "Dashboard", icon: Home, id: "dashboard" },
+  { title: "Plan de Comidas", icon: Calendar, id: "meals" },
+  { title: "Lista de Compras", icon: ShoppingCart, id: "shopping" },
+  { title: "Progreso", icon: TrendingUp, id: "progress" },
+  { title: "Perfil", icon: User, id: "profile" }
 ];
+
 function AppSidebar({ activeItem, setActiveItem }: { activeItem: string, setActiveItem: (id: string) => void }) {
-    return (
-        <Sidebar>
-          <SidebarContent>
-            <SidebarGroup>
-              <SidebarGroupLabel className="flex items-center gap-2 px-2 py-4">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                  <Utensils className="h-5 w-5 text-primary-foreground" />
-                </div>
-                <span className="font-extrabold text-xl tracking-tight">SmartNutriAI</span>
-              </SidebarGroupLabel>
-              <SidebarGroupContent className="mt-4">
-                <SidebarMenu>
-                  {menuItems.map((item) => (
-                    <SidebarMenuItem key={item.id}>
-                      <SidebarMenuButton
-                        isActive={activeItem === item.id}
-                        onClick={() => setActiveItem(item.id)}
-                        data-testid={`sidebar-${item.id}`}
-                      >
-                        <item.icon className="h-5 w-5" />
-                        <span className="font-medium">{item.title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-        </Sidebar>
-      );
+  return (
+    <Sidebar>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="flex items-center gap-2 px-2 py-4">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <Utensils className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="font-extrabold text-xl tracking-tight">SmartNutriAI</span>
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="mt-4">
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton
+                    isActive={activeItem === item.id}
+                    onClick={() => setActiveItem(item.id)}
+                    data-testid={`sidebar-${item.id}`}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    <span className="font-medium">{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
 }
 
 export default function Dashboard() {
   const [activePage, setActivePage] = useState("dashboard");
-  const [userData, setUserData] = useState(null);
-  const [dietPlan, setDietPlan] = useState(null);
+  const [userData, setUserData] = useState<any>(null);
+  const [dietPlan, setDietPlan] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [, setLocation] = useLocation();
 
   // 🌟 LECTURA DE DATOS AL INICIO 🌟
   useEffect(() => {
-    const profileData = localStorage.getItem('user_profile');
-    const dietData = localStorage.getItem('user_diet_plan');
+    const fetchInitialData = async () => {
+      try {
+        // 1. Cargar perfil (primero local, luego podríamos validar con backend)
+        const profileData = localStorage.getItem('user_profile');
+        if (profileData) {
+          setUserData(JSON.parse(profileData));
+        }
 
-    if (profileData) {
-        setUserData(JSON.parse(profileData));
-    }
+        // 2. Cargar plan activo desde el BACKEND
+        const token = localStorage.getItem('access_token');
+        if (token) {
+          const response = await fetch(`${API_BASE_URL}/api/plan/activo`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
 
-    if (dietData) {
-        setDietPlan(JSON.parse(dietData));
-    }
+          if (response.ok) {
+            const data = await response.json();
+            console.log("🔍 Plan Activo recuperado:", data);
+            // Adaptar la respuesta del backend al formato que espera el frontend
+            // El backend devuelve { plan: { ... } } o directamente el objeto del plan
+            const planToSet = data.plan || data;
+            setDietPlan(planToSet);
+            // Actualizar caché local por si acaso
+            localStorage.setItem('user_diet_plan', JSON.stringify(planToSet));
+          } else {
+            console.log("⚠️ No se encontró plan activo o error en backend:", response.status);
+            // Fallback: intentar leer de localStorage si el backend falla
+            const localDiet = localStorage.getItem('user_diet_plan');
+            if (localDiet) setDietPlan(JSON.parse(localDiet));
+          }
+        }
+      } catch (error) {
+        console.error("❌ Error al cargar datos iniciales:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    setIsLoading(false);
+    fetchInitialData();
   }, [setLocation]);
 
   // 🌟 FUNCIÓN CLAVE: Cerrar Sesión 🌟
@@ -146,9 +142,14 @@ export default function Dashboard() {
         duracion: userData.duration
       };
 
-      const response = await fetch('http://127.0.0.1:5000/api/generar_plan', {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_BASE_URL}/api/plan/generar`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include',
         body: JSON.stringify(requestData)
       });
 
@@ -157,10 +158,17 @@ export default function Dashboard() {
       }
 
       const result = await response.json();
-      localStorage.setItem('user_diet_plan', JSON.stringify(result.plan));
-      setDietPlan(result.plan);
+      console.log("🔍 API Response:", result); // DEBUG LOG
 
-      alert('¡Nuevo plan generado exitosamente!');
+      // Misma lógica robusta que en useEffect
+      const planToSet = result.plan || result;
+      console.log("🔍 Plan Data to Set:", planToSet); // DEBUG LOG
+
+      localStorage.setItem('user_diet_plan', JSON.stringify(planToSet));
+      setDietPlan(planToSet);
+
+      alert('¡Nuevo plan generado exitosamente! Redirigiendo a tu plan...');
+      setActivePage('meals'); // Cambiar a la pestaña de comidas para ver el resultado
     } catch (error) {
       console.error('Error:', error);
       alert('Error al generar el plan. Verifica que el backend esté corriendo.');
@@ -169,87 +177,122 @@ export default function Dashboard() {
     }
   };
 
+  // 🌟 VISTAS DEL DASHBOARD (Movidas dentro para acceder al estado) 🌟
+  const MealPlanView = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold mb-2">Plan de Comidas</h2>
+        <p className="text-muted-foreground">Tu plan nutricional completo generado por IA</p>
+      </div>
+      {dietPlan ? (
+        <GeminiPlanView planText={typeof dietPlan === 'string' ? dietPlan : dietPlan.contenido || dietPlan.contenido_plan || dietPlan.rawText || JSON.stringify(dietPlan)} userData={userData} />
+      ) : (
+        <TodayMealPlan />
+      )}
+    </div>
+  );
+
+  const ShoppingListView = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold mb-2">Lista de Compras</h2>
+        <p className="text-muted-foreground">Ingredientes extraídos de tu plan nutricional</p>
+      </div>
+      <SmartShoppingList />
+    </div>
+  );
+
+  const ProgressView = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold mb-2">Seguimiento de Progreso</h2>
+        <p className="text-muted-foreground">Monitorea tu evolución y logros</p>
+      </div>
+      <ProgressTracking />
+    </div>
+  );
+
+  const ProfileView = () => (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold mb-2">Configuración de Perfil</h2>
+        <p className="text-muted-foreground">Administra tu información personal y preferencias</p>
+      </div>
+      <ProfileSettings />
+    </div>
+  );
+
   const DashboardOverview = () => {
     // Detectar si el plan viene de Gemini (es texto) o es estructurado
-    const isTextOnlyPlan = typeof dietPlan === 'string';
-    const hasRawText = dietPlan && typeof dietPlan === 'object' && 'rawText' in dietPlan;
-    
+    const isTextOnlyPlan = typeof dietPlan === 'string' || (dietPlan && typeof dietPlan === 'object' && ('contenido_plan' in dietPlan || 'contenido' in dietPlan));
+
     // Obtener nombre del usuario
     const userName = userData?.name || 'de vuelta';
-    
+
     let descriptionContent;
     if (userData && dietPlan) {
-        const userGoal = GOAL_MAPPING[userData.goal] || userData.goal;
+      const userGoal = GOAL_MAPPING[userData.goal] || userData.goal;
 
-        if (isTextOnlyPlan) {
-            descriptionContent = (
-                <p className="text-muted-foreground">
-                    <span className="font-semibold">Meta:</span> {userGoal} | 
-                    <span className="font-semibold"> Plan generado por IA</span>
-                </p>
-            );
-        } else {
-            descriptionContent = (
-                <p className="text-muted-foreground">
-                    <span className="font-semibold">Meta:</span> {userGoal} |
-                    <span className="font-semibold"> Calorías objetivo:</span> {dietPlan.targetCalories} kcal |
-                    <span className="font-semibold"> Enfoque:</span> {dietPlan.dietFocus}
-                </p>
-            );
-        }
+      if (isTextOnlyPlan) {
+        descriptionContent = (
+          <p className="text-muted-foreground">
+            <span className="font-semibold">Meta:</span> {userGoal} |
+            <span className="font-semibold"> Plan generado por IA</span>
+          </p>
+        );
+      } else {
+        descriptionContent = (
+          <p className="text-muted-foreground">
+            <span className="font-semibold">Meta:</span> {userGoal} |
+            <span className="font-semibold"> Calorías objetivo:</span> {dietPlan.targetCalories} kcal |
+            <span className="font-semibold"> Enfoque:</span> {dietPlan.dietFocus}
+          </p>
+        );
+      }
     } else {
-        descriptionContent = <p className="text-muted-foreground">Tu plan está cargando. Si esto tarda, por favor completa el Onboarding.</p>;
+      descriptionContent = <p className="text-muted-foreground">Tu plan está cargando. Si esto tarda, por favor completa el Onboarding.</p>;
     }
 
     return (
-        <>
+      <>
         <div className="flex items-center justify-between gap-4 flex-wrap pb-6 border-b">
-            <div>
-                <h1 className="text-3xl font-bold mb-1">¡Bienvenido {userName}!</h1>
-                {descriptionContent}
-            </div>
-            <Button 
-              data-testid="button-generate-new-plan" 
-              className="bg-primary hover:bg-primary/90" 
-              disabled={!userData || isLoading}
-              onClick={handleGenerateNewPlan}
-            >
-                <Sparkles className="mr-2 h-4 w-4" />
-                {isLoading ? 'Generando...' : 'Generar Nuevo Plan con IA'}
-            </Button>
+          <div>
+            <h1 className="text-3xl font-bold mb-1">¡Bienvenido {userName}!</h1>
+            {descriptionContent}
+          </div>
+          <Button
+            data-testid="button-generate-new-plan"
+            className="bg-primary hover:bg-primary/90"
+            disabled={!userData || isLoading}
+            onClick={handleGenerateNewPlan}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            {isLoading ? 'Generando...' : 'Generar Nuevo Plan con IA'}
+          </Button>
         </div>
 
         <div className="space-y-6 pt-6">
-            {/* Tarjeta de perfil del usuario - siempre visible */}
-            <UserProfileCard userData={userData} />
+          {/* Tarjeta de perfil del usuario - siempre visible */}
+          <UserProfileCard userData={userData} />
 
-            {/* Si es solo texto, mostrar solo el plan de Gemini */}
-            {isTextOnlyPlan ? (
-                <GeminiPlanView planText={dietPlan} userData={userData} />
-            ) : (
-                <>
-                    {/* Mostrar estadísticas y gráficas */}
-                    <DashboardStats userData={userData} dietPlan={dietPlan} />
+          {/* Mostrar estadísticas y gráficas (siempre, aunque sean datos simulados por ahora) */}
+          <DashboardStats userData={userData} dietPlan={dietPlan} />
 
-                    <div className="grid lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2 space-y-6">
-                            <TodaysMeals dietPlan={dietPlan} />
-                            {/* Si tiene texto de Gemini, mostrarlo también */}
-                            {hasRawText && <GeminiPlanView planText={dietPlan.rawText} userData={userData} />}
-                        </div>
-                        <div className="space-y-6">
-                            <MacroChart dietPlan={dietPlan} />
-                            <ShoppingList userData={userData} />
-                        </div>
-                    </div>
-                </>
-            )}
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <TodaysMeals dietPlan={dietPlan} />
+            </div>
+            <div className="space-y-6">
+              <MacroChart dietPlan={dietPlan} />
+              <ShoppingList userData={userData} />
+            </div>
+          </div>
         </div>
-        </>
+      </>
     );
   };
 
-  const ContentMap = {
+  const ContentMap: any = {
     dashboard: { component: DashboardOverview, title: "Dashboard", description: "Resumen nutricional diario" },
     meals: { component: MealPlanView, title: "Plan de Comidas", description: "Gestión de tu calendario de comidas" },
     shopping: { component: ShoppingListView, title: "Lista de Compras", description: "Artículos necesarios para tu plan" },
@@ -284,20 +327,20 @@ export default function Dashboard() {
         <div className="flex flex-col flex-1">
           <header className="sticky top-0 z-20 flex items-center justify-between p-4 border-b bg-card shadow-sm">
             <div className="flex items-center gap-4">
-                <SidebarTrigger data-testid="button-sidebar-toggle" />
-                <div className="hidden sm:block">
-                    <h1 className="text-xl font-bold">{currentTitle}</h1>
-                    <p className="text-sm text-muted-foreground">{currentDescription}</p>
-                </div>
+              <SidebarTrigger data-testid="button-sidebar-toggle" />
+              <div className="hidden sm:block">
+                <h1 className="text-xl font-bold">{currentTitle}</h1>
+                <p className="text-sm text-muted-foreground">{currentDescription}</p>
+              </div>
             </div>
 
             {/* 🌟 BOTÓN DE CERRAR SESIÓN 🌟 */}
             <div className="flex items-center space-x-3">
-                <Button variant="ghost" onClick={handleLogout} className="text-sm">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Cerrar Sesión
-                </Button>
-                <ThemeToggle />
+              <Button variant="ghost" onClick={handleLogout} className="text-sm">
+                <LogOut className="h-4 w-4 mr-2" />
+                Cerrar Sesión
+              </Button>
+              <ThemeToggle />
             </div>
           </header>
 

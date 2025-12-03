@@ -9,57 +9,58 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
+import { API_BASE_URL } from "@/lib/config";
 
 const TOTAL_STEPS = 5;
 
 // =========================================================
 // FUNCIÓN DE LÓGICA: SIMULACIÓN DE GENERACIÓN DE DIETA
 // =========================================================
-const generateInitialDiet = (data) => {
-    const { weight, height, age, gender, activityLevel, goal, dietType } = data;
+const generateInitialDiet = (data: any) => {
+  const { weight, height, age, gender, activityLevel, goal, dietType } = data;
 
-    // Convertir a números
-    const w = parseFloat(weight);
-    const h = parseFloat(height);
-    const a = parseFloat(age);
+  // Convertir a números
+  const w = parseFloat(weight);
+  const h = parseFloat(height);
+  const a = parseFloat(age);
 
-    // Cálculo BMR (Mifflin-St Jeor):
-    let bmr = (10 * w) + (6.25 * h) - (5 * a);
-    bmr += (gender === 'male' ? 5 : -161);
+  // Cálculo BMR (Mifflin-St Jeor):
+  let bmr = (10 * w) + (6.25 * h) - (5 * a);
+  bmr += (gender === 'male' ? 5 : -161);
 
-    // Factor de Actividad (Multiplicador de TDEE)
-    const activityFactors = {
-        'sedentary': 1.2,
-        'light': 1.375,
-        'moderate': 1.55,
-        'active': 1.725,
-        'very-active': 1.9,
-    };
-    const activityFactor = activityFactors[activityLevel] || 1.4;
-    let tdee = bmr * activityFactor;
+  // Factor de Actividad (Multiplicador de TDEE)
+  const activityFactors: any = {
+    'sedentary': 1.2,
+    'light': 1.375,
+    'moderate': 1.55,
+    'active': 1.725,
+    'very-active': 1.9,
+  };
+  const activityFactor = activityFactors[activityLevel] || 1.4;
+  let tdee = bmr * activityFactor;
 
-    // Ajuste por Objetivo
-    let calories = Math.round(tdee);
-    let focus = "Balanceado";
-    let macros = { protein: '30%', carbs: '50%', fat: '20%' };
+  // Ajuste por Objetivo
+  let calories = Math.round(tdee);
+  let focus = "Balanceado";
+  let macros = { protein: '30%', carbs: '50%', fat: '20%' };
 
-    if (goal === 'lose') {
-        calories = Math.round(tdee - 500);
-        focus = `Pérdida de Peso (${dietType})`;
-        macros = { protein: '40%', carbs: '35%', fat: '25%' };
-    } else if (goal === 'gain') {
-        calories = Math.round(tdee + 400);
-        focus = `Ganancia Muscular (${dietType})`;
-        macros = { protein: '35%', carbs: '45%', fat: '20%' };
-    }
+  if (goal === 'lose') {
+    calories = Math.round(tdee - 500);
+    focus = `Pérdida de Peso (${dietType})`;
+    macros = { protein: '40%', carbs: '35%', fat: '25%' };
+  } else if (goal === 'gain') {
+    calories = Math.round(tdee + 400);
+    focus = `Ganancia Muscular (${dietType})`;
+    macros = { protein: '35%', carbs: '45%', fat: '20%' };
+  }
 
-    return {
-        targetCalories: Math.max(1200, calories),
-        targetMacros: macros,
-        dietFocus: focus,
-        mealsPerDay: 4,
-        unit: 'kg/cm'
-    };
+  return {
+    targetCalories: Math.max(1200, calories),
+    targetMacros: macros,
+    dietFocus: focus,
+    mealsPerDay: 4,
+    unit: 'kg/cm'
+  };
 };
 // =========================================================
 
@@ -89,7 +90,7 @@ export default function OnboardingForm() {
   const validateStep = (step: number): boolean => {
     setError("");
     const data = formData;
-    switch(step) {
+    switch (step) {
       case 1:
         if (!data.name) { setError("Por favor, ingresa tu nombre."); return false; }
         if (!data.age || !data.gender) { setError("Por favor, completa edad y género."); return false; }
@@ -125,23 +126,17 @@ export default function OnboardingForm() {
       setLoading(true);
 
       try {
-        const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
-        const token = localStorage.getItem('access_token');
-
-        if (!token) {
-          throw new Error('No estás autenticado');
-        }
 
         // Mapear valores del formulario a los valores de la API
         // Mapeos según los valores exactos de la base de datos
-        const goalMap = {
+        const goalMap: any = {
           'lose': 'Perder peso',
           'maintain': 'Mantener peso',
           'gain': 'Ganar músculo',
           'health': 'Mejorar salud'
         };
 
-        const activityMap = {
+        const activityMap: any = {
           'sedentary': 'Sedentario',
           'light': 'Ligero',
           'moderate': 'Moderado',
@@ -149,7 +144,7 @@ export default function OnboardingForm() {
           'very-active': 'Muy activo'
         };
 
-        const dietMap = {
+        const dietMap: any = {
           'balanced': 'Balanceada',
           'vegetarian': 'Vegetariana',
           'vegan': 'Vegana',
@@ -158,7 +153,7 @@ export default function OnboardingForm() {
           'mediterranean': 'Mediterránea'
         };
 
-        const genderMap = {
+        const genderMap: any = {
           'male': 'Masculino',
           'female': 'Femenino',
           'other': 'Otro'
@@ -178,12 +173,16 @@ export default function OnboardingForm() {
         };
 
         // PASO 1: Guardar perfil
-        const profileResponse = await fetch(`${API_URL}/api/profile`, {
+        const token = localStorage.getItem('access_token');
+        if (!token) throw new Error('No se encontró token de autenticación');
+
+        const profileResponse = await fetch(`${API_BASE_URL}/api/profile`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
+          credentials: 'include',
           body: JSON.stringify(profileData)
         });
 
@@ -194,22 +193,23 @@ export default function OnboardingForm() {
         }
 
         // PASO 2: Generar plan con IA
-        const durationMap = {
+        const durationMap: any = {
           '1week': '1 semana',
           '2weeks': '2 semanas',
           '1month': '1 mes'
         };
 
-        const planResponse = await fetch(`${API_URL}/api/plan/generar`, {
+        const planResponse = await fetch(`${API_BASE_URL}/api/plan/generar`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
+          credentials: 'include',
           body: JSON.stringify({
             duracion: durationMap[formData.duration] || '1 semana',
-            prompt_adicional: formData.allergies.length > 0 
-              ? `Alergias: ${formData.allergies.join(', ')}` 
+            prompt_adicional: formData.allergies.length > 0
+              ? `Alergias: ${formData.allergies.join(', ')}`
               : ''
           })
         });
@@ -222,14 +222,14 @@ export default function OnboardingForm() {
 
         // Guardar en localStorage
         localStorage.setItem('user_profile', JSON.stringify({
-            ...formData,
-            completedOnboarding: true
+          ...formData,
+          completedOnboarding: true
         }));
 
         // Redirección
         setTimeout(() => {
-            setLoading(false);
-            setLocation('/dashboard');
+          setLoading(false);
+          setLocation('/dashboard');
         }, 1500);
 
       } catch (err: any) {

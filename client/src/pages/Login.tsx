@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter }
 import { Label } from "@/components/ui/label";
 import { LogIn } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
+import { API_BASE_URL } from '@/lib/config';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -25,16 +26,15 @@ export default function Login() {
     }
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
-
       // Llamar al endpoint de login
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
-          email,
+          email: email,
           password
         })
       });
@@ -82,7 +82,7 @@ export default function Login() {
 
         <CardHeader className="text-center pb-6">
           <div className="flex justify-center mb-2">
-             <LogIn className="w-8 h-8 text-green-400" />
+            <LogIn className="w-8 h-8 text-green-400" />
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight text-green-400">
             Bienvenido
@@ -139,10 +139,8 @@ export default function Login() {
               {loading ? 'Accediendo...' : 'Acceder '}
             </Button>
 
-            <Link href="/register">
-                <a className="text-sm text-gray-400 hover:text-green-400 transition-colors duration-200 underline-offset-4 hover:underline">
-                  ¿No tienes cuenta? Regístrate aquí
-                </a>
+            <Link href="/register" className="text-sm text-gray-400 hover:text-green-400 transition-colors duration-200 underline-offset-4 hover:underline">
+              ¿No tienes cuenta? Regístrate aquí
             </Link>
           </CardFooter>
         </form>

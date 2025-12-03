@@ -5,6 +5,7 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter }
 import { Label } from "@/components/ui/label";
 import { UserPlus } from 'lucide-react';
 import { Link } from 'wouter';
+import { API_BASE_URL } from '@/lib/config';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -31,16 +32,15 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
-
       // Llamar al endpoint de registro
-      const response = await fetch(`${API_URL}/api/auth/signup`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({
-          email,
+          email: email,
           password
         })
       });
@@ -112,7 +112,7 @@ export default function Register() {
                 disabled={loading}
               />
             </div>
-             <div className="grid gap-2">
+            <div className="grid gap-2">
               <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
               <Input
                 id="confirm-password"
@@ -133,7 +133,7 @@ export default function Register() {
               {loading ? 'Registrando...' : 'Registrarme'}
             </Button>
             <Link href="/login" className="text-sm text-primary hover:text-primary/80 transition-colors">
-                ¿Ya tienes cuenta? Inicia sesión
+              ¿Ya tienes cuenta? Inicia sesión
             </Link>
           </CardFooter>
         </form>

@@ -16,11 +16,12 @@ interface RespuestaPlan {
 }
 
 async function generarPlan(datos: DatosUsuario): Promise<RespuestaPlan> {
-  const response = await fetch("http://127.0.0.1:5000/api/generar_plan", {
+  const response = await fetch("/api/plan/generar", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "include",
     body: JSON.stringify(datos),
   });
 

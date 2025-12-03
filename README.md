@@ -68,10 +68,10 @@ Esta interfaz necesita comunicarse con el backend que tiene la inteligencia arti
    - El backend debe estar en: `http://127.0.0.1:5000`
    - Si tu compañero tiene el backend en otra dirección, avísale para actualizar la configuración
 
-2. **Si el backend está en otra dirección:**
-   - Abre el archivo: `client/src/hooks/useGenerarPlan.ts`
-   - Busca la línea que dice: `http://127.0.0.1:5000/api/generar_plan`
-   - Cámbiala por la dirección correcta
+2. **Configuración automática:**
+   - La aplicación ahora usa rutas relativas (`/api/plan/generar`)
+   - El frontend y backend deben correr en el mismo servidor
+   - Por defecto: `http://localhost:3000`
 
 ---
 
@@ -132,8 +132,8 @@ npm install
 ### "Error de CORS" o "Failed to fetch"
 
 **Solución:** Asegúrate de que:
-1. El backend esté corriendo en `http://127.0.0.1:5000`
-2. El backend tenga CORS habilitado (tu compañero debe verificar esto)
+1. El backend esté corriendo en el mismo puerto que el frontend (por defecto `http://localhost:3000`)
+2. La aplicación usa rutas relativas, por lo que frontend y backend deben estar en el mismo servidor
 
 ### La página se ve rara o sin estilos
 

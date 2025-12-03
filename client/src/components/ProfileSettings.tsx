@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { User, Save, RefreshCw, Download, Trash2, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function ProfileSettings() {
   const [, setLocation] = useLocation();
@@ -81,9 +82,9 @@ export default function ProfileSettings() {
       completedOnboarding: true,
       lastUpdated: new Date().toISOString()
     };
-    
+
     localStorage.setItem('user_profile', JSON.stringify(profileData));
-    
+
     toast({
       title: "Perfil actualizado",
       description: "Tus cambios han sido guardados correctamente",
@@ -110,9 +111,14 @@ export default function ProfileSettings() {
         duracion: formData.duration
       };
 
-      const response = await fetch('http://127.0.0.1:5000/api/generar_plan', {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_BASE_URL}/api/plan/generar`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include',
         body: JSON.stringify(userData)
       });
 
@@ -272,8 +278,8 @@ export default function ProfileSettings() {
             <p className="text-2xl font-bold text-primary">{imc}</p>
             <p className="text-xs text-muted-foreground mt-1">
               {parseFloat(imc) < 18.5 ? 'Bajo peso' :
-               parseFloat(imc) < 25 ? 'Peso normal' :
-               parseFloat(imc) < 30 ? 'Sobrepeso' : 'Obesidad'}
+                parseFloat(imc) < 25 ? 'Peso normal' :
+                  parseFloat(imc) < 30 ? 'Sobrepeso' : 'Obesidad'}
             </p>
           </div>
         )}
