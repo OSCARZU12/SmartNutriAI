@@ -1,127 +1,75 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Download, Copy, Check, Calendar, Utensils } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Sparkles, Download, Copy, Check, Calendar, Utensils, Info, ShoppingCart } from "lucide-react";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 
-interface GeminiPlanViewProps {
-  planText: string;
-  userData?: any;
+// --- Interfaces del Nuevo Esquema JSON ---
+
+interface Macros {
+  proteina: string;
+  carbs: string;
+  grasas: string;
 }
 
 interface Meal {
-  title: string;
-  content: string[];
+  tipo: string;
+  nombre_plato: string;
+  descripcion: string;
+  ingredientes: string[];
+  calorias_aprox: number;
+  macros_aprox: Macros;
 }
 
 interface DayPlan {
-  id: string;
-  title: string;
-  meals: Meal[];
+  dia: number;
+  titulo: string;
+  comidas: Meal[];
 }
 
-export default function GeminiPlanView({ planText, userData }: GeminiPlanViewProps) {
+interface NutritionalPlanData {
+  resumen_objetivo: string;
+  total_calorias_diarias_aprox: number;
+  dias: DayPlan[];
+  recomendaciones_generales: string[];
+  lista_compras_sugerida: string[];
+}
+
+interface GeminiPlanViewProps {
+  plan: { plan_nutricional: NutritionalPlanData } | NutritionalPlanData; // Soporta con o sin wrapper
+  userData?: any;
+}
+
+export default function GeminiPlanView({ plan, userData }: GeminiPlanViewProps) {
   const [copied, setCopied] = useState(false);
-  const [parsedPlan, setParsedPlan] = useState<DayPlan[]>([]);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (planText) {
-      setParsedPlan(parsePlanText(planText));
-    }
-  }, [planText]);
+  // Normalizar la estructura del plan (por si viene con o sin el wrapper "plan_nutricional")
+  const planData: NutritionalPlanData = plan && 'plan_nutricional' in plan
+    ? (plan as any).plan_nutricional
+    : plan;
 
-  const parsePlanText = (text: string): DayPlan[] => {
-    const days: DayPlan[] = [];
-    const lines = text.split('\n');
-    let currentDay: DayPlan | null = null;
-    let currentMeal: Meal | null = null;
-    let capturingRecommendations = false;
-    const recommendationsLines: string[] = [];
-
-    lines.forEach(line => {
-      const trimmedLine = line.trim();
-      if (!trimmedLine) return;
-
-      // 1. Detectar inicio de Recomendaciones (o Consejos, Tips, Notas)
-      if (trimmedLine.match(/(Recomendaciones|Consejos|Tips|Notas)/i) && !capturingRecommendations) {
-        capturingRecommendations = true;
-        // Cerrar comida actual si existe
-        if (currentMeal && currentDay) {
-          currentDay.meals.push(currentMeal);
-          currentMeal = null;
-        }
-        return; // No agregar la línea del título "Recomendaciones" al contenido
-      }
-
-      // 2. Si estamos en modo recomendaciones, guardar todo aquí
-      if (capturingRecommendations) {
-        recommendationsLines.push(line);
-        return;
-      }
-
-      // 3. Detectar Día
-      if (trimmedLine.match(/^Día \d+/i)) {
-        if (currentMeal && currentDay) {
-          currentDay.meals.push(currentMeal);
-          currentMeal = null;
-        }
-        if (currentDay) {
-          days.push(currentDay);
-        }
-        currentDay = {
-          id: `day-${days.length + 1}`,
-          title: trimmedLine,
-          meals: []
-        };
-      }
-      // 4. Detectar Comida
-      else if (trimmedLine.match(/^\s*(Desayuno|Almuerzo|Comida|Cena|Snack|Merienda)/i)) {
-        if (currentMeal && currentDay) {
-          currentDay.meals.push(currentMeal);
-        }
-        currentMeal = {
-          title: trimmedLine,
-          content: []
-        };
-      }
-      // 5. Contenido de la comida
-      else if (currentMeal) {
-        currentMeal.content.push(trimmedLine);
-      }
-    });
-
-    // Push del último día y comida (si no se cerraron antes)
-    if (currentMeal && currentDay) {
-      currentDay.meals.push(currentMeal);
-    }
-    if (currentDay) {
-      days.push(currentDay);
-    }
-
-    // Agregar tab de recomendaciones si existen
-    if (recommendationsLines.length > 0) {
-      days.push({
-        id: 'recommendations',
-        title: 'Recomendaciones',
-        meals: [{
-          title: 'Tips y Consejos Clave',
-          content: recommendationsLines
-        }]
-      });
-    }
-
-    return days;
-  };
+  if (!planData || !planData.dias) {
+    return (
+      <div className="p-6 text-center text-muted-foreground">
+        <Info className="mx-auto h-10 w-10 mb-4 opacity-50" />
+        <p>No hay datos de plan nutricional válidos para mostrar.</p>
+        <div className="text-xs mt-2 opacity-50 font-mono text-left bg-muted p-2 rounded overflow-auto max-h-32">
+          DEBUG: {JSON.stringify(plan, null, 2)}
+        </div>
+      </div>
+    );
+  }
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(planText);
+    const textToCopy = JSON.stringify(planData, null, 2);
+    navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     toast({
-      title: "Plan copiado",
-      description: "El plan completo ha sido copiado al portapapeles",
+      title: "JSON Copiado",
+      description: "La estructura del plan se ha copiado al portapapeles.",
     });
     setTimeout(() => setCopied(false), 2000);
   };
@@ -130,31 +78,12 @@ export default function GeminiPlanView({ planText, userData }: GeminiPlanViewPro
     try {
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 20;
-      const maxWidth = pageWidth - (margin * 2);
       let yPosition = 20;
 
-      // Colores
-      const primaryColor = [34, 139, 34]; // Verde
-      const secondaryColor = [70, 130, 180]; // Azul
-      const grayColor = [100, 100, 100];
-      const lightGray = [240, 240, 240];
-
-      // Función para verificar espacio y agregar página
-      const checkPageBreak = (spaceNeeded: number = 20) => {
-        if (yPosition + spaceNeeded > pageHeight - 20) {
-          pdf.addPage();
-          yPosition = 20;
-          return true;
-        }
-        return false;
-      };
-
-      // Header con fondo de color
-      pdf.setFillColor(...primaryColor);
+      // Header
+      pdf.setFillColor(34, 139, 34); // Verde
       pdf.rect(0, 0, pageWidth, 40, 'F');
-
       pdf.setTextColor(255, 255, 255);
       pdf.setFontSize(22);
       pdf.setFont("helvetica", "bold");
@@ -164,262 +93,183 @@ export default function GeminiPlanView({ planText, userData }: GeminiPlanViewPro
       pdf.text("Personalizado con IA", pageWidth / 2, 30, { align: 'center' });
 
       yPosition = 50;
-
-      // Información del usuario en tarjeta
-      if (userData) {
-        checkPageBreak(80);
-
-        // Fondo de la tarjeta
-        pdf.setFillColor(...lightGray);
-        pdf.roundedRect(margin, yPosition, maxWidth, 70, 3, 3, 'F');
-
-        yPosition += 8;
-        pdf.setTextColor(...primaryColor);
-        pdf.setFontSize(14);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("DATOS PERSONALES", margin + 5, yPosition);
-
-        yPosition += 8;
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFontSize(10);
-        pdf.setFont("helvetica", "normal");
-
-        // Columna izquierda
-        const col1X = margin + 5;
-        const col2X = pageWidth / 2 + 5;
-        let tempY = yPosition;
-
-        pdf.text(`Edad: ${userData.age} años`, col1X, tempY);
-        pdf.text(`Peso: ${userData.weight} kg`, col2X, tempY);
-        tempY += 6;
-
-        pdf.text(`Género: ${userData.gender === 'male' ? 'Masculino' : userData.gender === 'female' ? 'Femenino' : 'Otro'}`, col1X, tempY);
-        pdf.text(`Altura: ${userData.height} cm`, col2X, tempY);
-        tempY += 6;
-
-        pdf.text(`Actividad: ${userData.activityLevel}`, col1X, tempY);
-        pdf.text(`Objetivo: ${userData.goal}`, col2X, tempY);
-        tempY += 6;
-
-        pdf.text(`Dieta: ${userData.dietType}`, col1X, tempY);
-        pdf.text(`Duración: ${userData.duration}`, col2X, tempY);
-        tempY += 6;
-
-        if (userData.allergies && userData.allergies.length > 0) {
-          pdf.setTextColor(220, 53, 69);
-          pdf.text(`Restricciones: ${userData.allergies.join(', ')}`, col1X, tempY);
-        }
-
-        yPosition = tempY + 10;
-      }
-
-      // Separador
-      yPosition += 5;
-      pdf.setDrawColor(...primaryColor);
-      pdf.setLineWidth(0.5);
-      pdf.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 10;
-
-      // Plan nutricional
-      pdf.setTextColor(...secondaryColor);
-      pdf.setFontSize(16);
-      pdf.setFont("helvetica", "bold");
-      pdf.text("TU PLAN NUTRICIONAL", margin, yPosition);
-      yPosition += 10;
-
       pdf.setTextColor(0, 0, 0);
-      const planLines = planText.split('\n');
 
-      planLines.forEach((line) => {
-        if (line.trim()) {
-          checkPageBreak();
+      // Resumen
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Objetivo:", margin, yPosition);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(planData.resumen_objetivo || "N/A", margin + 30, yPosition);
+      yPosition += 10;
 
-          // Días de la semana
-          if (line.match(/^Día \d+/i)) {
-            yPosition += 5;
-            checkPageBreak(15);
-            pdf.setFillColor(...primaryColor);
-            pdf.roundedRect(margin, yPosition - 5, maxWidth, 10, 2, 2, 'F');
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(12);
-            pdf.setFont("helvetica", "bold");
-            pdf.text(line, margin + 5, yPosition);
-            yPosition += 8;
-            pdf.setTextColor(0, 0, 0);
-          }
-          // Comidas (Desayuno, Almuerzo, Comida, Cena, Snack, Merienda)
-          else if (line.match(/^\s*(Desayuno|Almuerzo|Comida|Cena|Snack|Merienda)/i)) {
-            yPosition += 3;
-            pdf.setTextColor(...secondaryColor);
-            pdf.setFontSize(11);
-            pdf.setFont("helvetica", "bold");
-            pdf.text(line.trim(), margin + 3, yPosition);
-            yPosition += 6;
-            pdf.setTextColor(0, 0, 0);
-          }
-          // Items con viñetas
-          else if (line.match(/^\s+[-•]/)) {
-            pdf.setFontSize(9);
-            pdf.setFont("helvetica", "normal");
-            const cleanLine = line.trim().replace(/^[-•]\s*/, '');
-            const lines = pdf.splitTextToSize(`• ${cleanLine}`, maxWidth - 10);
-            lines.forEach((l: string) => {
-              checkPageBreak();
-              pdf.text(l, margin + 8, yPosition);
-              yPosition += 4;
-            });
-          }
-          // Consejos numerados
-          else if (line.match(/^\d+\.\s+/)) {
-            yPosition += 2;
-            pdf.setTextColor(...grayColor);
-            pdf.setFontSize(10);
-            pdf.setFont("helvetica", "bold");
-            const lines = pdf.splitTextToSize(line.trim(), maxWidth - 5);
-            lines.forEach((l: string) => {
-              checkPageBreak();
-              pdf.text(l, margin + 3, yPosition);
-              yPosition += 5;
-            });
-            pdf.setTextColor(0, 0, 0);
-          }
-          // Texto normal
-          else {
-            pdf.setFontSize(9);
-            pdf.setFont("helvetica", "normal");
-            const lines = pdf.splitTextToSize(line.trim(), maxWidth - 5);
-            lines.forEach((l: string) => {
-              checkPageBreak();
-              pdf.text(l, margin + 3, yPosition);
-              yPosition += 4.5;
-            });
-          }
-        }
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Calorías Diarias:", margin, yPosition);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`${planData.total_calorias_diarias_aprox} kcal`, margin + 45, yPosition);
+      yPosition += 15;
+
+      // Iterar días
+      planData.dias.forEach((dia) => {
+        if (yPosition > 250) { pdf.addPage(); yPosition = 20; }
+
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(margin, yPosition, pageWidth - (margin * 2), 10, 'F');
+        pdf.setFont("helvetica", "bold");
+        pdf.text(dia.titulo, margin + 5, yPosition + 7);
+        yPosition += 15;
+
+        dia.comidas.forEach((comida) => {
+          if (yPosition > 270) { pdf.addPage(); yPosition = 20; }
+          pdf.setFont("helvetica", "bold");
+          pdf.text(`${comida.tipo}: ${comida.nombre_plato}`, margin + 5, yPosition);
+          yPosition += 6;
+
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(10);
+          const descLines = pdf.splitTextToSize(comida.descripcion, pageWidth - (margin * 2) - 10);
+          pdf.text(descLines, margin + 10, yPosition);
+          yPosition += (descLines.length * 5) + 5;
+        });
+        yPosition += 5;
       });
 
-      // Footer en todas las páginas
-      const totalPages = pdf.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        pdf.setPage(i);
-        pdf.setFontSize(8);
-        pdf.setTextColor(...grayColor);
-        pdf.setFont("helvetica", "italic");
-        pdf.text(`SmartNutriAI - Página ${i} de ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-        pdf.text(`Generado el ${new Date().toLocaleDateString('es-ES')}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-      }
-
-      // Guardar PDF
-      pdf.save('plan-nutricional-smartnutriai.pdf');
-
-      toast({
-        title: "Plan descargado",
-        description: "Tu PDF personalizado está listo",
-      });
+      pdf.save('plan-nutricional.pdf');
+      toast({ title: "Plan descargado", description: "Tu PDF está listo" });
     } catch (error) {
-      console.error('Error al generar PDF:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo generar el PDF",
-        variant: "destructive",
-      });
+      console.error('Error PDF:', error);
+      toast({ title: "Error", description: "No se pudo generar el PDF", variant: "destructive" });
     }
-  };
-
-  // Fallback: Formatear el texto para mejor visualización (si el parsing falla o es vista simple)
-  const formatPlanFallback = (text: string) => {
-    return text.split('\n').map((line, index) => {
-      if (line.includes('---') || line.match(/^[A-Z\u00C0-\u017F\s]+:$/)) {
-        return <div key={index} className="border-b-2 border-primary/20 pb-2 mb-4" />;
-      }
-      if (line.match(/^Día \d+/i)) {
-        return <h3 key={index} className="text-xl font-bold text-primary mt-6 mb-3 flex items-center gap-2">📅 {line}</h3>;
-      }
-      if (line.match(/^\s*(Desayuno|Almuerzo|Comida|Cena|Snack|Merienda)/i)) {
-        return <h4 key={index} className="text-lg font-semibold text-foreground mt-4 mb-2 ml-4">{line.trim()}</h4>;
-      }
-      if (line.match(/^\s+[-•]\s/) || line.match(/^\s+\d+\./)) {
-        return <p key={index} className="text-muted-foreground ml-8 mb-1">{line.trim()}</p>;
-      }
-      if (line.match(/^\d+\.\s+/)) {
-        return <p key={index} className="text-foreground font-medium mt-3 mb-2">{line.trim()}</p>;
-      }
-      if (line.trim()) {
-        return <p key={index} className="text-muted-foreground mb-2 leading-relaxed">{line}</p>;
-      }
-      return <br key={index} />;
-    });
   };
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
+      <Card className="p-6 border-primary/10 shadow-lg">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">Tu Plan Nutricional Personalizado</h2>
-              <p className="text-sm text-muted-foreground">Generado por IA con Gemini</p>
+              <h2 className="text-2xl font-bold">Tu Plan Nutricional</h2>
+              <p className="text-sm text-muted-foreground">{planData.resumen_objetivo}</p>
             </div>
           </div>
 
           <div className="flex gap-2">
+            <div className="bg-secondary/20 px-3 py-1 rounded-md text-sm font-medium text-secondary-foreground flex items-center">
+              🔥 {planData.total_calorias_diarias_aprox} kcal/día
+            </div>
             <Button variant="outline" size="sm" onClick={handleCopy}>
               {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-              {copied ? "Copiado" : "Copiar"}
+              JSON
             </Button>
             <Button variant="outline" size="sm" onClick={handleDownload}>
               <Download className="h-4 w-4 mr-2" />
-              Descargar
+              PDF
             </Button>
           </div>
         </div>
 
-        {parsedPlan.length > 0 ? (
-          <Tabs defaultValue={parsedPlan[0]?.id} className="w-full">
-            <TabsList className="w-full justify-start overflow-x-auto mb-6 h-auto p-1 flex-wrap">
-              {parsedPlan.map((day) => (
-                <TabsTrigger key={day.id} value={day.id} className="min-w-[80px]">
-                  {day.title.replace(':', '')}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {parsedPlan.map((day) => (
-              <TabsContent key={day.id} value={day.id} className="space-y-4 animate-in fade-in-50">
-                <div className="flex items-center gap-2 mb-4">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  <h3 className="text-xl font-bold">{day.title}</h3>
-                </div>
-
-                <div className={`grid gap-4 ${day.id === 'recommendations' ? 'grid-cols-1' : 'md:grid-cols-2 lg:grid-cols-3'}`}>
-                  {day.meals.map((meal, idx) => (
-                    <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow">
-                      <CardHeader className="bg-muted/30 pb-3">
-                        <CardTitle className="text-base font-bold flex items-center gap-2">
-                          <Utensils className="h-4 w-4 text-muted-foreground" />
-                          {meal.title}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-4 text-sm space-y-2">
-                        {meal.content.map((line, i) => (
-                          <p key={i} className="text-muted-foreground leading-relaxed">
-                            {line}
-                          </p>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </TabsContent>
+        <Tabs defaultValue={`day-${planData.dias[0]?.dia}`} className="w-full">
+          <TabsList className="w-full justify-start overflow-x-auto mb-6 h-auto p-1 flex-wrap bg-muted/50">
+            {planData.dias.map((day) => (
+              <TabsTrigger
+                key={day.dia}
+                value={`day-${day.dia}`}
+                className="min-w-[100px] data-[state=active]:bg-green-500/15 data-[state=active]:text-green-700 dark:data-[state=active]:text-green-400 data-[state=active]:backdrop-blur-md data-[state=active]:border data-[state=active]:border-green-500/20 data-[state=active]:shadow-sm transition-all"
+              >
+                Día {day.dia}
+              </TabsTrigger>
             ))}
-          </Tabs>
-        ) : (
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            {formatPlanFallback(planText)}
-          </div>
-        )}
+            <TabsTrigger value="recommendations" className="min-w-[100px]">
+              Recomendaciones
+            </TabsTrigger>
+          </TabsList>
+
+          {planData.dias.map((day) => (
+            <TabsContent key={day.dia} value={`day-${day.dia}`} className="space-y-4 animate-in fade-in-50">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar className="h-5 w-5 text-primary" />
+                <h3 className="text-xl font-bold">{day.titulo}</h3>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {day.comidas.map((meal, idx) => (
+                  <Card key={idx} className="overflow-hidden hover:shadow-md transition-shadow border-muted">
+                    <CardHeader className="bg-muted/30 pb-3 pt-4">
+                      <CardTitle className="text-base font-bold flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <Utensils className="h-4 w-4 text-primary" />
+                          {meal.tipo}
+                        </span>
+                        <span className="text-xs font-normal bg-background px-2 py-1 rounded-full border">
+                          {meal.calorias_aprox} kcal
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 text-sm space-y-3">
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">{meal.nombre_plato}</p>
+                        <p className="text-muted-foreground leading-relaxed text-xs">{meal.descripcion}</p>
+                      </div>
+
+                      <div className="bg-muted/20 p-2 rounded text-xs space-y-1">
+                        <p><span className="font-medium">Ingredientes:</span> {meal.ingredientes.join(", ")}</p>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1 text-center text-xs pt-2 border-t">
+                        <div>
+                          <span className="block font-bold text-primary">{meal.macros_aprox.proteina}</span>
+                          <span className="text-[10px] text-muted-foreground">Prot</span>
+                        </div>
+                        <div>
+                          <span className="block font-bold text-primary">{meal.macros_aprox.carbs}</span>
+                          <span className="text-[10px] text-muted-foreground">Carbs</span>
+                        </div>
+                        <div>
+                          <span className="block font-bold text-primary">{meal.macros_aprox.grasas}</span>
+                          <span className="text-[10px] text-muted-foreground">Grasas</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+          ))}
+
+          <TabsContent value="recommendations" className="space-y-6 animate-in fade-in-50">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Info className="h-5 w-5 text-blue-500" />
+                  Recomendaciones Generales
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {planData.recomendaciones_generales.map((rec, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                      <span>
+                        {rec.split(/(\*\*.*?\*\*)/).map((part, index) =>
+                          part.startsWith('**') && part.endsWith('**') ? (
+                            <strong key={index} className="font-semibold text-foreground">
+                              {part.slice(2, -2)}
+                            </strong>
+                          ) : (
+                            part
+                          )
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </Card>
     </div>
   );

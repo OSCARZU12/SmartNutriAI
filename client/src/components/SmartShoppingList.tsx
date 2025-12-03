@@ -14,30 +14,58 @@ interface ShoppingCategory {
   items: ShoppingItem[];
 }
 
-export default function SmartShoppingList() {
+interface SmartShoppingListProps {
+  plan?: any;
+}
+
+export default function SmartShoppingList({ plan }: SmartShoppingListProps) {
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [categories, setCategories] = useState<ShoppingCategory[]>([]);
 
   useEffect(() => {
-    const dietPlanStr = localStorage.getItem('user_diet_plan');
-    
-    if (dietPlanStr) {
-      try {
-        const dietPlan = JSON.parse(dietPlanStr);
-        const planText = typeof dietPlan === 'string' ? dietPlan : dietPlan.rawText || '';
-        
-        if (planText) {
-          const extractedItems = extractIngredientsFromPlan(planText);
-          setCategories(extractedItems);
+    // 1. Intentar usar el plan pasado por props
+    let activePlan = plan;
+
+    // 2. Si no hay props, intentar leer de localStorage
+    if (!activePlan) {
+      const storedPlan = localStorage.getItem('user_diet_plan');
+      if (storedPlan) {
+        try {
+          activePlan = JSON.parse(storedPlan);
+        } catch (e) {
+          console.error("Error parsing stored plan", e);
         }
-      } catch (error) {
-        console.error('Error al extraer ingredientes:', error);
       }
     }
-  }, []);
 
-  const extractIngredientsFromPlan = (planText: string): ShoppingCategory[] => {
-    const ingredients: { [key: string]: Set<string> } = {
+    if (activePlan) {
+      processPlan(activePlan);
+    }
+  }, [plan]);
+
+  const processPlan = (dietPlan: any) => {
+    // Normalizar estructura (puede venir con o sin wrapper 'plan_nutricional')
+    const planData = dietPlan.plan_nutricional || dietPlan;
+
+    // ESTRATEGIA 1: Usar lista pre-generada por IA (JSON Estructurado)
+    if (planData.lista_compras_sugerida && Array.isArray(planData.lista_compras_sugerida)) {
+      console.log("🛒 Usando lista de compras estructurada del JSON");
+      const categorized = categorizeItems(planData.lista_compras_sugerida);
+      setCategories(categorized);
+      return;
+    }
+
+    // ESTRATEGIA 2: Fallback a parsing de texto (Legacy)
+    console.log("⚠️ No se encontró lista estructurada, usando parsing de texto legacy");
+    const planText = typeof dietPlan === 'string' ? dietPlan : (dietPlan.rawText || '');
+    if (planText) {
+      const extracted = extractIngredientsFromText(planText);
+      setCategories(extracted);
+    }
+  };
+
+  const categorizeItems = (items: string[]): ShoppingCategory[] => {
+    const categories: { [key: string]: Set<string> } = {
       'Proteínas': new Set(),
       'Frutas y Verduras': new Set(),
       'Granos y Cereales': new Set(),
@@ -45,89 +73,55 @@ export default function SmartShoppingList() {
       'Otros': new Set()
     };
 
-    // Palabras clave para categorizar
-    const proteinas = ['pollo', 'pechuga', 'ternera', 'carne', 'pescado', 'salmón', 'bacalao', 'atún', 'pavo', 'huevo', 'lentejas', 'garbanzos', 'frijoles'];
-    const frutas = ['plátano', 'banana', 'manzana', 'fresas', 'arándanos', 'frutos rojos', 'mango', 'naranja', 'limón', 'aguacate', 'frutos del bosque'];
-    const verduras = ['espinacas', 'lechuga', 'tomate', 'pepino', 'zanahoria', 'brócoli', 'coliflor', 'calabacín', 'pimiento', 'cebolla', 'apio', 'espárragos', 'judías verdes', 'batata', 'patata'];
-    const granos = ['avena', 'quinoa', 'arroz', 'pan', 'tortilla', 'cuscús', 'pasta', 'cereal'];
-    const lacteos = ['leche', 'yogurt', 'queso'];
+    items.forEach(item => {
+      const cleanItem = item.trim();
+      if (!cleanItem) return;
 
-    // Extraer líneas que parecen ingredientes (tienen números o medidas)
-    const lines = planText.split('\n');
-    
-    lines.forEach(line => {
-      const trimmed = line.trim().toLowerCase();
-      
-      // Buscar líneas que tengan cantidades (números seguidos de g, kg, ml, taza, etc.)
-      if (trimmed.match(/\d+\s*(g|kg|ml|l|taza|cucharada|rebanada|unidad)/i) || 
-          trimmed.match(/^\s*[-•]\s+/)) {
-        
-        let ingredient = trimmed
-          .replace(/^\s*[-•]\s+/, '')
-          .replace(/\(.*?\)/g, '')
-          .trim();
+      const lowerItem = cleanItem.toLowerCase();
+      let categorized = false;
 
-        if (ingredient.length < 5 || ingredient.length > 100) return;
+      // Lógica de categorización simple basada en palabras clave
+      if (['pollo', 'carne', 'pescado', 'huevo', 'atún', 'pavo', 'res', 'cerdo', 'salmón'].some(k => lowerItem.includes(k))) {
+        categories['Proteínas'].add(cleanItem);
+        categorized = true;
+      } else if (['manzana', 'banana', 'plátano', 'fresa', 'fruta', 'verdura', 'lechuga', 'tomate', 'cebolla', 'zanahoria', 'espinaca'].some(k => lowerItem.includes(k))) {
+        categories['Frutas y Verduras'].add(cleanItem);
+        categorized = true;
+      } else if (['arroz', 'pan', 'avena', 'pasta', 'quinoa', 'cereal', 'tortilla'].some(k => lowerItem.includes(k))) {
+        categories['Granos y Cereales'].add(cleanItem);
+        categorized = true;
+      } else if (['leche', 'yogur', 'queso', 'mantequilla'].some(k => lowerItem.includes(k))) {
+        categories['Lácteos'].add(cleanItem);
+        categorized = true;
+      }
 
-        // Categorizar
-        let categorized = false;
-        
-        proteinas.forEach(p => {
-          if (ingredient.includes(p)) {
-            ingredients['Proteínas'].add(capitalizeFirst(ingredient));
-            categorized = true;
-          }
-        });
-        
-        if (!categorized) {
-          frutas.forEach(f => {
-            if (ingredient.includes(f)) {
-              ingredients['Frutas y Verduras'].add(capitalizeFirst(ingredient));
-              categorized = true;
-            }
-          });
-        }
-        
-        if (!categorized) {
-          verduras.forEach(v => {
-            if (ingredient.includes(v)) {
-              ingredients['Frutas y Verduras'].add(capitalizeFirst(ingredient));
-              categorized = true;
-            }
-          });
-        }
-        
-        if (!categorized) {
-          granos.forEach(g => {
-            if (ingredient.includes(g)) {
-              ingredients['Granos y Cereales'].add(capitalizeFirst(ingredient));
-              categorized = true;
-            }
-          });
-        }
-        
-        if (!categorized) {
-          lacteos.forEach(l => {
-            if (ingredient.includes(l)) {
-              ingredients['Lácteos'].add(capitalizeFirst(ingredient));
-              categorized = true;
-            }
-          });
-        }
-        
-        if (!categorized && ingredient.length > 10) {
-          ingredients['Otros'].add(capitalizeFirst(ingredient));
-        }
+      if (!categorized) {
+        categories['Otros'].add(cleanItem);
       }
     });
 
-    // Convertir a formato de categorías
-    return Object.entries(ingredients)
+    return Object.entries(categories)
       .filter(([_, items]) => items.size > 0)
       .map(([name, items]) => ({
         name,
-        items: Array.from(items).map(item => ({ name: item }))
+        items: Array.from(items).map(i => ({ name: i }))
       }));
+  };
+
+  const extractIngredientsFromText = (planText: string): ShoppingCategory[] => {
+    // ... (Lógica anterior de parsing de texto, simplificada o reutilizada si se desea)
+    // Para mantener compatibilidad, reutilizamos la lógica de categorización pero extrayendo líneas primero
+    const lines = planText.split('\n');
+    const potentialItems: string[] = [];
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed.match(/\d+\s*(g|kg|ml|l|taza|cucharada|rebanada|unidad)/i) || trimmed.match(/^\s*[-•]\s+/)) {
+        potentialItems.push(trimmed.replace(/^\s*[-•]\s+/, '').replace(/\(.*?\)/g, '').trim());
+      }
+    });
+
+    return categorizeItems(potentialItems);
   };
 
   const capitalizeFirst = (str: string): string => {
@@ -146,7 +140,7 @@ export default function SmartShoppingList() {
 
   const handleExport = () => {
     let text = "LISTA DE COMPRAS - SmartNutriAI\n\n";
-    
+
     categories.forEach(category => {
       text += `${category.name}:\n`;
       category.items.forEach(item => {
@@ -188,7 +182,7 @@ export default function SmartShoppingList() {
           Exportar Lista
         </Button>
       </div>
-      
+
       <div className="space-y-6">
         {categories.map((category, catIdx) => (
           <div key={catIdx}>
@@ -203,9 +197,8 @@ export default function SmartShoppingList() {
                   />
                   <label
                     htmlFor={`item-${catIdx}-${itemIdx}`}
-                    className={`flex-1 text-sm cursor-pointer ${
-                      checkedItems.has(item.name) ? "line-through text-muted-foreground" : ""
-                    }`}
+                    className={`flex-1 text-sm cursor-pointer ${checkedItems.has(item.name) ? "line-through text-muted-foreground" : ""
+                      }`}
                   >
                     {item.name}
                   </label>

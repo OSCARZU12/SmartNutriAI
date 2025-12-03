@@ -1,19 +1,17 @@
 import { SidebarProvider, Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger } from "@/components/ui/sidebar";
-import { Home, Calendar, ShoppingCart, User, TrendingUp, Utensils, Loader2, LogOut } from "lucide-react";
+import { Home, Calendar, ShoppingCart, User, TrendingUp, Utensils, Loader2, LogOut, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import DashboardStats from "@/components/DashboardStats";
 import MacroChart from "@/components/MacroChart";
-import TodaysMeals from "@/components/TodaysMeals";
+import WeeklyChart from "@/components/WeeklyChart";
 import TodayMealPlan from "@/components/TodayMealPlan";
-import ShoppingList from "@/components/ShoppingList";
 import SmartShoppingList from "@/components/SmartShoppingList";
 import ProgressTracking from "@/components/ProgressTracking";
 import ProfileSettings from "@/components/ProfileSettings";
 import GeminiPlanView from "@/components/GeminiPlanView";
 import UserProfileCard from "@/components/UserProfileCard";
 import { Button } from "@/components/ui/button";
-import { Sparkles } from "lucide-react";
 import { useLocation } from "wouter";
 import { API_BASE_URL } from "@/lib/config";
 
@@ -178,19 +176,42 @@ export default function Dashboard() {
   };
 
   // 🌟 VISTAS DEL DASHBOARD (Movidas dentro para acceder al estado) 🌟
-  const MealPlanView = () => (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Plan de Comidas</h2>
-        <p className="text-muted-foreground">Tu plan nutricional completo generado por IA</p>
+  const MealPlanView = () => {
+    // Helper para extraer el objeto JSON del plan, venga de donde venga
+    const getPlanObject = (plan: any) => {
+      if (!plan) return null;
+      // Caso 1: Ya es el objeto estructurado (ideal)
+      if (plan.plan_nutricional) return plan;
+      // Caso 2: Está anidado en contenido_plan o contenido
+      if (plan.contenido_plan && typeof plan.contenido_plan === 'object') return plan.contenido_plan;
+      if (plan.contenido && typeof plan.contenido === 'object') return plan.contenido;
+      // Caso 3: Es un string JSON (intentar parsear)
+      if (typeof plan === 'string') {
+        try { return JSON.parse(plan); } catch (e) { return null; }
+      }
+      // Caso 4: Propiedades anidadas son strings JSON
+      if (typeof plan.contenido_plan === 'string') {
+        try { return JSON.parse(plan.contenido_plan); } catch (e) { return null; }
+      }
+      return plan; // Intentar devolver lo que hay
+    };
+
+    const planData = getPlanObject(dietPlan);
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Plan de Comidas</h2>
+          <p className="text-muted-foreground">Tu plan nutricional completo generado por IA</p>
+        </div>
+        {planData ? (
+          <GeminiPlanView plan={planData} userData={userData} />
+        ) : (
+          <TodayMealPlan />
+        )}
       </div>
-      {dietPlan ? (
-        <GeminiPlanView planText={typeof dietPlan === 'string' ? dietPlan : dietPlan.contenido || dietPlan.contenido_plan || dietPlan.rawText || JSON.stringify(dietPlan)} userData={userData} />
-      ) : (
-        <TodayMealPlan />
-      )}
-    </div>
-  );
+    );
+  };
 
   const ShoppingListView = () => (
     <div className="space-y-6">
@@ -198,7 +219,7 @@ export default function Dashboard() {
         <h2 className="text-2xl font-bold mb-2">Lista de Compras</h2>
         <p className="text-muted-foreground">Ingredientes extraídos de tu plan nutricional</p>
       </div>
-      <SmartShoppingList />
+      <SmartShoppingList plan={dietPlan} />
     </div>
   );
 
@@ -275,16 +296,18 @@ export default function Dashboard() {
           {/* Tarjeta de perfil del usuario - siempre visible */}
           <UserProfileCard userData={userData} />
 
-          {/* Mostrar estadísticas y gráficas (siempre, aunque sean datos simulados por ahora) */}
+          {/* Mostrar estadísticas y gráficas */}
           <DashboardStats userData={userData} dietPlan={dietPlan} />
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <TodaysMeals dietPlan={dietPlan} />
-            </div>
-            <div className="space-y-6">
-              <MacroChart dietPlan={dietPlan} />
-              <ShoppingList userData={userData} />
+          {/* Gráficas Principales */}
+          <div className="space-y-6">
+            <WeeklyChart dietPlan={dietPlan} />
+
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="md:col-span-1">
+                <MacroChart dietPlan={dietPlan} />
+              </div>
+              {/* Espacio para futuros widgets */}
             </div>
           </div>
         </div>

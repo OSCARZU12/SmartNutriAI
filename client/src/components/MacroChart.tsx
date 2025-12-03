@@ -1,28 +1,66 @@
-// src/components/MacroChart.tsx
-
 import { Card } from "@/components/ui/card";
-// 👈 Importaciones clave de Recharts:
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
-const COLORS = ['#2563EB', '#FBBF24', '#10B981']; // Azul, Amarillo, Verde
+const COLORS = ['#3b82f6', '#eab308', '#ef4444']; // Blue-500, Yellow-500, Red-500
 
-export default function MacroChart({ dietPlan }) {
+interface MacroChartProps {
+    dietPlan: any;
+}
 
-    // 1. Obtener y formatear los macros objetivo o usar un valor por defecto
-    const targetMacros = dietPlan?.targetMacros || { protein: '33%', carbs: '33%', fat: '20%' };
+export default function MacroChart({ dietPlan }: MacroChartProps) {
+    // 1. Calcular macros reales sumando todas las comidas del plan
+    const calculateRealMacros = () => {
+        const planData = dietPlan?.plan_nutricional || dietPlan;
 
-    const data = [
-      { name: 'Proteínas', value: parseInt(targetMacros.protein), color: COLORS[0] },
-      { name: 'Carbohidratos', value: parseInt(targetMacros.carbs), color: COLORS[1] },
-      { name: 'Grasas', value: parseInt(targetMacros.fat), color: COLORS[2] },
-    ].filter(item => item.value > 0); // Filtra cualquier valor que sea 0
+        if (!planData || !planData.dias) {
+            // Fallback a objetivos si no hay datos de días, o valores por defecto
+            const target = dietPlan?.targetMacros || { protein: '33%', carbs: '33%', fat: '33%' };
+            return [
+                { name: 'Proteínas', value: parseInt(target.protein) || 33, color: COLORS[0] },
+                { name: 'Carbohidratos', value: parseInt(target.carbs) || 33, color: COLORS[1] },
+                { name: 'Grasas', value: parseInt(target.fat) || 33, color: COLORS[2] },
+            ];
+        }
+
+        let totalProtein = 0;
+        let totalCarbs = 0;
+        let totalFat = 0;
+
+        planData.dias.forEach((day: any) => {
+            day.comidas.forEach((meal: any) => {
+                if (meal.macros_aprox) {
+                    totalProtein += parseInt(String(meal.macros_aprox.proteina).replace(/\D/g, '') || '0');
+                    totalCarbs += parseInt(String(meal.macros_aprox.carbs).replace(/\D/g, '') || '0');
+                    totalFat += parseInt(String(meal.macros_aprox.grasas).replace(/\D/g, '') || '0');
+                }
+            });
+        });
+
+        // Evitar división por cero
+        const totalGrams = totalProtein + totalCarbs + totalFat;
+        if (totalGrams === 0) return [];
+
+        // Calcular calorías aproximadas de cada macro para el porcentaje (4-4-9 kcal/g)
+        const calProtein = totalProtein * 4;
+        const calCarbs = totalCarbs * 4;
+        const calFat = totalFat * 9;
+        const totalCal = calProtein + calCarbs + calFat;
+
+        return [
+            { name: 'Proteínas', value: Math.round((calProtein / totalCal) * 100), grams: Math.round(totalProtein / planData.dias.length), color: COLORS[0] },
+            { name: 'Carbohidratos', value: Math.round((calCarbs / totalCal) * 100), grams: Math.round(totalCarbs / planData.dias.length), color: COLORS[1] },
+            { name: 'Grasas', value: Math.round((calFat / totalCal) * 100), grams: Math.round(totalFat / planData.dias.length), color: COLORS[2] },
+        ];
+    };
+
+    const data = calculateRealMacros();
 
     return (
-        <Card className="p-6">
-            <h3 className="text-xl font-semibold mb-4">Distribución de Macronutrientes</h3>
+        <Card className="p-6 flex flex-col h-full">
+            <h3 className="text-xl font-semibold mb-2">Distribución de Macros</h3>
+            <p className="text-sm text-muted-foreground mb-6">Promedio diario basado en tu plan</p>
 
-            {/* 👈 CONTENEDOR DEL GRÁFICO 👈 */}
-            <div className="w-full h-56">
+            <div className="flex-1 min-h-[200px] relative">
                 <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                         <Pie
@@ -31,32 +69,42 @@ export default function MacroChart({ dietPlan }) {
                             cy="50%"
                             innerRadius={60}
                             outerRadius={80}
-                            fill="#8884d8"
                             paddingAngle={5}
                             dataKey="value"
-                            labelLine={false}
+                            stroke="none"
+                            cornerRadius={4}
                         >
                             {data.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip
+                            formatter={(value: number, name: string, props: any) => [`${value}% (${props.payload.grams}g/día)`, name]}
+                            contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        />
                         <Legend
-                            layout="horizontal"
                             verticalAlign="bottom"
-                            align="center"
-                            wrapperStyle={{ paddingTop: '10px' }}
+                            height={36}
+                            iconType="circle"
                         />
                     </PieChart>
                 </ResponsiveContainer>
+
+                {/* Texto central (opcional, visualmente atractivo) */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-8">
+                    <div className="text-center">
+                        <span className="text-3xl font-bold text-primary">100%</span>
+                        <p className="text-xs text-muted-foreground">Calorías</p>
+                    </div>
+                </div>
             </div>
 
-            {/* Display de porcentaje debajo del gráfico (si quieres mantener los números fuera del gráfico) */}
-            <div className="grid grid-cols-3 gap-2 mt-4 text-center">
-                {data.map(item => (
-                    <div key={item.name}>
-                        <p className="font-bold text-lg" style={{ color: item.color }}>{item.value}%</p>
-                        <p className="text-xs text-muted-foreground">{item.name}</p>
+            <div className="grid grid-cols-3 gap-2 mt-4 text-center border-t pt-4">
+                {data.map((item) => (
+                    <div key={item.name} className="flex flex-col items-center">
+                        <span className="text-2xl font-bold" style={{ color: item.color }}>{item.value}%</span>
+                        <span className="text-xs text-muted-foreground font-medium">{item.name}</span>
+                        <span className="text-xs text-gray-400">~{item.grams}g</span>
                     </div>
                 ))}
             </div>
