@@ -19,7 +19,14 @@ export default function TodayMealPlan() {
     
     if (dietPlanStr) {
       try {
-        const dietPlan = JSON.parse(dietPlanStr);
+        // Intentar parsear, si falla es porque ya es string directo
+        let dietPlan;
+        try {
+          dietPlan = JSON.parse(dietPlanStr);
+        } catch {
+          // Si falla el parse, es porque ya es el string directo
+          dietPlan = dietPlanStr;
+        }
         
         // Si es texto plano de Gemini, extraer las comidas del día actual
         if (typeof dietPlan === 'string') {

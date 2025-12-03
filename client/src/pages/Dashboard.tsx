@@ -114,7 +114,18 @@ export default function Dashboard() {
     }
 
     if (dietData) {
-        setDietPlan(JSON.parse(dietData));
+        try {
+          const parsed = JSON.parse(dietData);
+          // Si el parsed es un string, significa que tiene comillas extras
+          if (typeof parsed === 'string') {
+            setDietPlan(parsed);
+          } else {
+            setDietPlan(parsed);
+          }
+        } catch (error) {
+          // Si falla el parse, usar el dato directo
+          setDietPlan(dietData);
+        }
     }
 
     setIsLoading(false);

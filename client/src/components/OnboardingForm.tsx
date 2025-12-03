@@ -157,8 +157,12 @@ export default function OnboardingForm() {
             ...formData,
             completedOnboarding: true
         }));
-        // Guardar el plan de Gemini como string
-        localStorage.setItem('user_diet_plan', JSON.stringify(result.plan));
+        // Guardar el plan de Gemini - si ya es string, guardarlo directo
+        if (typeof result.plan === 'string') {
+          localStorage.setItem('user_diet_plan', result.plan);
+        } else {
+          localStorage.setItem('user_diet_plan', JSON.stringify(result.plan));
+        }
 
         // Redirección
         setTimeout(() => {
